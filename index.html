@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>มาริโอ้เก็บเหรียญ: ตามรอยพระพุทธเจ้า</title>
+<style>
+/* ===================== สไตล์ทั้งหมด (การ์ตูน สดใส) ===================== */
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+html,body{margin:0;height:100%;background:#1b1b2f;overflow:hidden;
+  font-family:'Sarabun','Noto Sans Thai','Leelawadee UI','Tahoma',sans-serif;touch-action:none}
+#wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+/* เวที 960x540 จะถูกย่อ/ขยายด้วย JS ให้พอดีหน้าจอ */
+#stage{position:relative;width:960px;height:540px;flex:none;transform-origin:center center;background:#5c94fc;overflow:hidden;border-radius:8px}
+canvas{position:absolute;inset:0;width:960px;height:540px;display:block}
+
+.btn{font:inherit;font-weight:800;font-size:22px;color:#fff;background:#e8590c;border:4px solid #7a2e00;border-radius:14px;
+  padding:8px 26px;box-shadow:0 6px 0 #7a2e00;cursor:pointer;margin:6px;transition:transform .05s}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 #7a2e00}
+.btn.green{background:#2f9e44;border-color:#14532d;box-shadow:0 6px 0 #14532d}
+.btn.green:active{box-shadow:0 2px 0 #14532d}
+.btn.blue{background:#1c7ed6;border-color:#0b3d75;box-shadow:0 6px 0 #0b3d75}
+.btn.blue:active{box-shadow:0 2px 0 #0b3d75}
+.btn.gold{background:#f59f00;border-color:#7a4b00;box-shadow:0 6px 0 #7a4b00;color:#3b2500}
+.btn.gold:active{box-shadow:0 2px 0 #7a4b00}
+.btn.small{font-size:16px;padding:5px 16px;border-width:3px;box-shadow:0 4px 0 #7a2e00;margin:3px}
+.btn[disabled]{filter:grayscale(1);opacity:.55;cursor:not-allowed}
+
+/* HUD */
+#hud{position:absolute;left:0;right:0;top:0;display:none;align-items:center;gap:8px;padding:8px 10px;z-index:5;pointer-events:none}
+#hud .pill{background:rgba(0,0,0,.5);color:#fff;border-radius:20px;padding:3px 14px;font-weight:800;font-size:18px;white-space:nowrap}
+#hud .sp{flex:1}
+#hud button{pointer-events:auto;font-size:20px;background:rgba(0,0,0,.5);color:#fff;border:0;border-radius:50%;width:38px;height:38px;cursor:pointer}
+#hudCoins{color:#ffd43b;letter-spacing:2px}
+#toast{position:absolute;left:50%;top:56px;transform:translateX(-50%);max-width:760px;background:#fff9db;border:4px solid #f59f00;
+  border-radius:16px;padding:8px 18px;font-size:19px;font-weight:700;color:#5c3b00;z-index:6;display:none;text-align:center;box-shadow:0 5px 0 rgba(0,0,0,.3)}
+
+/* ปุ่มควบคุมมือถือ */
+#touch{position:absolute;left:0;right:0;bottom:12px;display:none;justify-content:space-between;align-items:flex-end;padding:0 22px;z-index:5;pointer-events:none}
+#touch .grp{display:flex;gap:18px}
+.tb{pointer-events:auto;width:112px;height:112px;border-radius:50%;background:rgba(255,255,255,.35);border:5px solid rgba(255,255,255,.85);
+  font-size:50px;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;touch-action:none}
+.tb.on{background:rgba(255,212,59,.7)}
+body.touch #touch.active{display:flex}
+
+/* หน้าจอต่างๆ */
+.screen{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;z-index:10;text-align:center;color:#fff}
+.screen.show{display:flex}
+.screen.dim{background:rgba(10,20,60,.62)}
+.panel{background:#fffbe6;color:#3b2a10;border:6px solid #7a2e00;border-radius:22px;padding:16px 26px;box-shadow:0 8px 0 rgba(0,0,0,.35);max-width:880px}
+h1.title{margin:0;font-size:56px;line-height:1.1;color:#ffd43b;text-shadow:0 5px 0 #b34700,0 8px 12px rgba(0,0,0,.4);-webkit-text-stroke:2px #7a2e00}
+h2.sub{margin:6px 0 4px;font-size:34px;color:#fff;text-shadow:0 3px 0 #1c4a8a}
+.small-txt{font-size:18px;color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.4)}
+.panel h3{margin:0 0 6px;font-size:30px;color:#c2410c}
+.panel p,.panel li{font-size:19px;line-height:1.45;margin:4px 0}
+.panel ul{text-align:left;margin:6px 0;padding-left:26px}
+.row{display:flex;flex-wrap:wrap;justify-content:center;align-items:center}
+.chips .btn{width:54px;padding:4px 0;font-size:20px;margin:3px}
+input[type=text]{font:inherit;font-size:22px;padding:8px 12px;border-radius:12px;border:4px solid #7a2e00;width:300px;text-align:center;-webkit-user-select:text;user-select:text}
+label{display:block;font-weight:800;margin:8px 0 3px;font-size:19px}
+
+/* หน้าคำถาม */
+#quizPanel{width:880px;padding:14px 24px}
+#quizHead{display:flex;justify-content:space-between;font-weight:800;color:#7a2e00;font-size:19px}
+#quizQ{font-size:26px;font-weight:800;margin:10px 0 12px;min-height:72px;display:flex;align-items:center;justify-content:center;line-height:1.35}
+#quizChoices{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.choice{font:inherit;font-size:20px;font-weight:700;text-align:left;background:#fff;color:#3b2a10;border:4px solid #adb5bd;border-radius:14px;padding:10px 12px;cursor:pointer;min-height:64px;line-height:1.3}
+.choice b{display:inline-block;width:30px;height:30px;line-height:26px;text-align:center;border-radius:50%;background:#ffd43b;border:2px solid #7a4b00;margin-right:8px}
+.choice.sel{border-color:#1c7ed6;background:#d0ebff}
+.choice.ok{border-color:#2f9e44;background:#d3f9d8}
+.choice.bad{border-color:#e03131;background:#ffe3e3}
+#quizFb{min-height:50px;font-size:19px;font-weight:700;margin-top:8px;line-height:1.35}
+#quizFb.ok{color:#2b8a3e}#quizFb.bad{color:#c92a2a}
+
+/* ตารางแดชบอร์ด */
+#dashBody{max-height:380px;overflow:auto;text-align:left;font-size:17px}
+table{border-collapse:collapse;width:100%;margin:6px 0}
+th,td{border:2px solid #e0c58a;padding:4px 8px;text-align:center;font-size:16px}
+th{background:#ffe8a3}
+.cards{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.card{background:#fff;border:3px solid #f59f00;border-radius:12px;padding:6px 14px;min-width:150px;text-align:center}
+.card b{display:block;font-size:26px;color:#c2410c}
+.janGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-height:360px;overflow:auto}
+.jan{background:#fff;border:3px solid #f59f00;border-radius:10px;padding:4px 6px;text-align:left;font-size:15px;line-height:1.3}
+.jan b{color:#c2410c;font-size:17px}
+.stars{font-size:46px;letter-spacing:6px}
+
+#rotate{display:none;position:fixed;inset:0;background:#1b1b2f;color:#fff;z-index:99;align-items:center;justify-content:center;text-align:center;font-size:24px;padding:30px}
+@media (orientation:portrait) and (max-width:700px){#rotate{display:flex}}
+</style>
+</head>
+<body>
+<div id="wrap">
+ <div id="stage">
+  <canvas id="game" width="960" height="540"></canvas>
+
+  <!-- HUD ระหว่างเล่น -->
+  <div id="hud">
+    <span class="pill" id="hudName">👤 -</span>
+    <span class="pill" id="hudLevel">ด่าน 1/5</span>
+    <span class="pill" id="hudCoins">○○○○○</span>
+    <span class="sp"></span>
+    <span class="pill" id="hudScore">⭐ 0</span>
+    <span class="pill" id="hudTime">⏱ 2:30</span>
+    <button id="btnMute" title="เปิด/ปิดเสียง">🔊</button>
+    <button id="btnPause" title="หยุดเกม">⏸</button>
+  </div>
+  <div id="toast"></div>
+
+  <!-- ปุ่มควบคุมสำหรับมือถือ -->
+  <div id="touch">
+    <div class="grp"><div class="tb" id="tbL">◀</div><div class="tb" id="tbR">▶</div></div>
+    <div class="grp"><div class="tb" id="tbJ">⤒</div></div>
+  </div>
+
+  <!-- หน้าจอหลัก -->
+  <div class="screen" id="sMenu">
+    <h1 class="title">มาริโอ้เก็บเหรียญ</h1>
+    <h2 class="sub">ตามรอยพระพุทธเจ้า</h2>
+    <div class="small-txt">มหาชนบท 16 แคว้น · พระพุทธศาสนา ชั้น ม.4</div>
+    <div class="small-txt" id="menuUser" style="margin:8px 0 2px"></div>
+    <div class="row">
+      <button class="btn green" id="bStart">▶ เริ่มเกม</button>
+      <button class="btn" id="bRestart">↻ เล่นใหม่</button>
+      <button class="btn blue" id="bHow">❓ วิธีเล่น</button>
+    </div>
+    <div class="row">
+      <button class="btn small gold" id="bJan">📜 16 แคว้น</button>
+      <button class="btn small gold" id="bDash">📊 แดชบอร์ด</button>
+      <button class="btn small blue" id="bUser">👤 เปลี่ยนผู้เล่น</button>
+    </div>
+    <div class="small-txt" style="margin-top:6px">เลือกด่าน:</div>
+    <div class="row chips" id="chips"></div>
+  </div>
+
+  <div class="screen dim" id="sName">
+    <div class="panel">
+      <h3>👤 ใส่ชื่อผู้เล่น</h3>
+      <label>ชื่อ-นามสกุล / ชื่อเล่น</label>
+      <input type="text" id="inName" maxlength="30" placeholder="เช่น น้องใบบัว">
+      <label>ห้อง / เลขที่ (ไม่บังคับ)</label>
+      <input type="text" id="inRoom" maxlength="12" placeholder="เช่น ม.4/2 เลขที่ 15">
+      <div class="row" style="margin-top:12px">
+        <button class="btn green" id="bNameOk">ตกลง</button>
+        <button class="btn blue" id="bNameCancel">ยกเลิก</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen dim" id="sHow">
+    <div class="panel" style="width:760px">
+      <h3>❓ วิธีเล่น</h3>
+      <ul>
+        <li><b>เดิน:</b> ปุ่ม ← → (หรือ A / D) · มือถือใช้ปุ่ม ◀ ▶ บนจอ</li>
+        <li><b>กระโดด:</b> Spacebar หรือ ↑ (หรือ W) · มือถือใช้ปุ่ม ⤒ (กดค้างเพื่อกระโดดสูงขึ้น)</li>
+        <li><b>เป้าหมาย:</b> เก็บ <b>เหรียญความรู้ 5 เหรียญ</b> ในแต่ละด่าน ก่อนเวลาหมด ตกเหวจะกลับมาเกิดใหม่</li>
+        <li><b>ตอบคำถาม:</b> เก็บเหรียญครบแล้วจะมีคำถาม 5 ข้อ ตอบถูกข้อละ <b>10 คะแนน</b> (เต็ม 50 ต่อด่าน)</li>
+        <li><b>ผ่านด่าน:</b> ต้องตอบถูกอย่างน้อย <b id="howPass">3</b> ข้อจึงไปด่านต่อไปได้</li>
+        <li><b>ปุ่มลัด:</b> P = หยุดเกม · ในหน้าคำถามกด 1–4 เพื่อเลือก, Enter เพื่อยืนยัน</li>
+      </ul>
+      <div class="row"><button class="btn green" data-back>เข้าใจแล้ว</button></div>
+    </div>
+  </div>
+
+  <div class="screen dim" id="sJan">
+    <div class="panel" style="width:900px">
+      <h3>📜 มหาชนบท 16 แคว้น (ตามอังคุตตรนิกาย)</h3>
+      <div class="janGrid" id="janGrid"></div>
+      <div class="row" style="margin-top:6px"><button class="btn green small" data-back>ปิด</button></div>
+    </div>
+  </div>
+
+  <div class="screen dim" id="sIntro">
+    <div class="panel" style="width:760px">
+      <h3 id="introTitle"></h3>
+      <p id="introText"></p>
+      <p><b>เป้าหมาย:</b> เก็บเหรียญความรู้ 5 เหรียญ ภายใน <span id="introTime"></span> วินาที แล้วตอบคำถามให้ถูก</p>
+      <div class="row"><button class="btn green" id="bGo">🚀 ไปกันเลย!</button><button class="btn small blue" id="bIntroMenu">เมนู</button></div>
+    </div>
+  </div>
+
+  <div class="screen dim" id="sQuiz">
+    <div class="panel" id="quizPanel">
+      <div id="quizHead"><span id="quizLv"></span><span id="quizNo"></span><span id="quizSc"></span></div>
+      <div id="quizQ"></div>
+      <div id="quizChoices"></div>
+      <div id="quizFb"></div>
+      <div class="row"><button class="btn green" id="bConfirm">ยืนยันคำตอบ</button></div>
+    </div>
+  </div>
+
+  <div class="screen dim" id="sResult">
+    <div class="panel" style="width:700px" id="resultPanel"></div>
+  </div>
+
+  <div class="screen dim" id="sPause">
+    <div class="panel"><h3>⏸ หยุดเกมชั่วคราว</h3>
+      <div class="row"><button class="btn green" id="bResume">▶ เล่นต่อ</button><button class="btn blue" id="bPauseMenu">ออกไปเมนู</button></div></div>
+  </div>
+
+  <div class="screen dim" id="sDash">
+    <div class="panel" style="width:900px">
+      <h3>📊 แดชบอร์ดผลการเรียนรู้</h3>
+      <div id="dashBody"></div>
+      <div class="row" style="margin-top:6px">
+        <button class="btn small gold" id="bCsv">⬇ ส่งออก CSV</button>
+        <button class="btn small" id="bClear">🗑 ล้างข้อมูลทั้งหมด</button>
+        <button class="btn small green" data-back>ปิด</button>
+      </div>
+    </div>
+  </div>
+ </div>
+</div>
+<div id="rotate">📱 กรุณาหมุนหน้าจอเป็นแนวนอน<br>เพื่อการเล่นที่สนุกที่สุด</div>
+
+<script>
+'use strict';
+/* =====================================================================
+   มาริโอ้เก็บเหรียญ: ตามรอยพระพุทธเจ้า  (ไฟล์เดียว ไม่ใช้ไลบรารีภายนอก)
+   ---------------------------------------------------------------------
+   วิธีแก้ไขข้อมูลในอนาคต:
+   1) CONFIG        – เวลา, เกณฑ์ผ่านด่าน, คะแนนต่อข้อ
+   2) MAHAJANAPADAS – ข้อมูล 16 แคว้น
+   3) LEVELS        – แต่ละด่าน: ชื่อ, คำอธิบาย, coinFacts (ความรู้ที่เหรียญ),
+                      questions (คำถาม/ตัวเลือก/เฉลย), layout (ตำแหน่งพื้น/แท่น/เหรียญ)
+      รูปแบบคำถาม: { q:'โจทย์', choices:['ก','ข','ค','ง'], answer:0, explain:'คำอธิบาย' }
+      answer = ลำดับตัวเลือกที่ถูก (เริ่มที่ 0) – ระบบจะสลับตัวเลือกให้เองทุกครั้ง
+   ===================================================================== */
+
+/* ---------- 1) ตั้งค่าทั่วไป ---------- */
+const CONFIG = {
+  timeLimit: 150,        // เวลาต่อด่าน (วินาที)
+  passCorrect: 3,        // ต้องตอบถูกอย่างน้อยกี่ข้อจึงผ่านด่าน
+  pointsPerCorrect: 10,  // คะแนนต่อข้อที่ตอบถูก
+  coinsPerLevel: 5,      // จำนวนเหรียญต่อด่าน (ต้องตรงกับจำนวนเหรียญใน layout)
+  storageKey: 'marioBuddha_v1'
+};
+
+/* ---------- 2) มหาชนบท 16 แคว้น ---------- */
+const MAHAJANAPADAS = [
+  ['อังคะ','จัมปา'],['มคธ','ราชคฤห์ (ต่อมาปาฏลีบุตร)'],['กาสี','พาราณสี'],['โกศล','สาวัตถี'],
+  ['วัชชี','เวสาลี'],['มัลละ','กุสินารา / ปาวา'],['เจตี','โสตถิวดี'],['วังสะ','โกสัมพี'],
+  ['กุรุ','อินทปัตถ์'],['ปัญจาละ','กัมปิลละ'],['มัจฉะ','วิราฏนคร'],['สุรเสนะ','มถุรา'],
+  ['อัสสกะ','โปตลิ'],['อวันตี','อุชเชนี'],['คันธาระ','ตักกสิลา'],['กัมโพชะ','แถบตะวันตกเฉียงเหนือ ติดคันธาระ']
+];
+
+/* ---------- 3) ด่านทั้งหมด ---------- */
+const LEVELS = [
+ { /* ===== ด่าน 1 ===== */
+  title:'พุทธประวัติ: ประสูติ',
+  intro:'เจ้าชายสิทธัตถะประสูติที่ลุมพินีวัน ชายแดนแคว้นสักกะ ซึ่งอยู่ในอิทธิพลของแคว้นโกศล หนึ่งในมหาชนบทแห่งชมพูทวีป',
+  theme:{top:'#4fa8ff',bottom:'#c9ecff',hill:'#5fd36b',hill2:'#3fb24f',night:false}, tr:0,
+  coinFacts:[
+   'เจ้าชายสิทธัตถะประสูติวันเพ็ญเดือน ๖ ก่อนพุทธศักราช 80 ปี ณ ลุมพินีวัน',
+   'ลุมพินีวันอยู่ระหว่างกรุงกบิลพัสดุ์ของศากยะ กับกรุงเทวทหะของโกลิยะ (ปัจจุบันอยู่ในเนปาล)',
+   'พระบิดาคือพระเจ้าสุทโธทนะ พระมารดาคือพระนางสิริมหามายา',
+   'แคว้นสักกะมีกรุงกบิลพัสดุ์เป็นราชธานี และอยู่ภายใต้อิทธิพลของแคว้นโกศล',
+   'หลังประสูติ 7 วัน พระนางสิริมหามายาสิ้นพระชนม์ พระนางปชาบดีโคตมีทรงเลี้ยงดูแทน'],
+  questions:[
+   {q:'เจ้าชายสิทธัตถะทรงประสูติ ณ สถานที่ใด?',choices:['ลุมพินีวัน','พุทธคยา','ป่าอิสิปตนมฤคทายวัน','เมืองกุสินารา'],answer:0,
+    explain:'ประสูติที่ลุมพินีวัน ส่วนพุทธคยาคือสถานที่ตรัสรู้ ป่าอิสิปตนะคือที่ปฐมเทศนา และกุสินาราคือที่ปรินิพพาน'},
+   {q:'พระบิดาและพระมารดาของเจ้าชายสิทธัตถะ คือใคร?',choices:['พระเจ้าสุทโธทนะ – พระนางสิริมหามายา','พระเจ้าพิมพิสาร – พระนางเขมา','พระเจ้าปเสนทิโกศล – พระนางมัลลิกา','พระเจ้าอุเทน – พระนางสามาวดี'],answer:0,
+    explain:'พระบิดาคือพระเจ้าสุทโธทนะ กษัตริย์แห่งศากยวงศ์ พระมารดาคือพระนางสิริมหามายา'},
+   {q:'พระนามเดิมของพระพุทธเจ้าคือข้อใด?',choices:['สิทธัตถะ','ราหุล','อานนท์','เทวทัต'],answer:0,
+    explain:'พระนามเดิมคือ "สิทธัตถะ" ส่วนราหุลคือพระโอรส'},
+   {q:'แคว้นสักกะ (ศากยะ) ซึ่งเป็นบ้านเกิดของพระพุทธเจ้า อยู่ภายใต้อิทธิพลของแคว้นใด?',choices:['โกศล','มคธ','วัชชี','อวันตี'],answer:0,
+    explain:'แคว้นสักกะอยู่ใต้อิทธิพลของแคว้นโกศล ซึ่งมีพระเจ้าปเสนทิโกศลเป็นกษัตริย์'},
+   {q:'วันประสูติของพระพุทธเจ้าตรงกับวันสำคัญใด?',choices:['วันวิสาขบูชา','วันมาฆบูชา','วันอาสาฬหบูชา','วันเข้าพรรษา'],answer:0,
+    explain:'วันเพ็ญเดือน ๖ คือวันวิสาขบูชา เป็นวันประสูติ ตรัสรู้ และปรินิพพาน'}],
+  layout:{W:2600,
+   ground:[[0,700],[820,1500],[1620,2600]],
+   plats:[[300,370,120],[520,300,120],[900,380,140],[1100,310,140],[1300,380,120],[1700,370,140],[1900,300,140],[2100,370,140]],
+   coins:[[360,330],[580,260],[1170,270],[1960,260],[2400,430]]}
+ },
+ { /* ===== ด่าน 2 ===== */
+  title:'อริยสัจ 4',
+  intro:'อริยสัจ 4 คือหัวใจของพระพุทธศาสนา ทรงแสดงเป็นครั้งแรกในปฐมเทศนาที่เมืองพาราณสี แคว้นกาสี',
+  theme:{top:'#ff9a5c',bottom:'#ffe3b3',hill:'#8bcf5a',hill2:'#5fae3e',night:false}, tr:2,
+  coinFacts:[
+   'อริยสัจ 4 คือความจริงอันประเสริฐ 4 ประการ: ทุกข์ สมุทัย นิโรธ มรรค',
+   'ทุกข์ คือปัญหาที่ทำให้ไม่สบายกายใจ เช่น ชาติ ชรา มรณะ พลัดพรากจากสิ่งที่รัก',
+   'สมุทัย คือเหตุให้เกิดทุกข์ ได้แก่ ตัณหา 3: กามตัณหา ภวตัณหา วิภวตัณหา',
+   'นิโรธ คือความดับทุกข์ หมายถึงนิพพาน',
+   'มรรค คือข้อปฏิบัติให้ถึงความดับทุกข์ ได้แก่ มรรคมีองค์ 8'],
+  questions:[
+   {q:'อริยสัจ 4 ประกอบด้วยข้อใดบ้าง?',choices:['ทุกข์ สมุทัย นิโรธ มรรค','ทุกข์ ศีล สมาธิ ปัญญา','ทาน ศีล ภาวนา มรรค','กามตัณหา ภวตัณหา วิภวตัณหา นิโรธ'],answer:0,
+    explain:'อริยสัจ 4 คือ ทุกข์ สมุทัย นิโรธ และมรรค'},
+   {q:'ชาติ ชรา มรณะ ความโศก ความพลัดพราก จัดอยู่ในอริยสัจข้อใด?',choices:['ทุกข์','สมุทัย','นิโรธ','มรรค'],answer:0,
+    explain:'สิ่งเหล่านี้คือสภาพปัญหาของชีวิต จึงเป็น "ทุกข์"'},
+   {q:'ตัณหา ซึ่งเป็นเหตุให้เกิดทุกข์ จัดเป็นอริยสัจข้อใด?',choices:['สมุทัย','ทุกข์','นิโรธ','มรรค'],answer:0,
+    explain:'สมุทัย แปลว่า เหตุให้เกิดทุกข์ ได้แก่ตัณหา'},
+   {q:'"นิโรธ" ในอริยสัจ 4 หมายถึงอะไร?',choices:['ความดับทุกข์ คือนิพพาน','เหตุให้เกิดทุกข์','ข้อปฏิบัติให้พ้นทุกข์','ความทุกข์กายทุกข์ใจ'],answer:0,
+    explain:'นิโรธ คือภาวะที่ทุกข์ดับไป ซึ่งก็คือนิพพาน'},
+   {q:'พระพุทธเจ้าทรงแสดงปฐมเทศนา (ธัมมจักกัปปวัตตนสูตร) แก่ปัญจวัคคีย์ที่ป่าอิสิปตนะ ซึ่งอยู่ในแคว้นใด?',choices:['กาสี','มคธ','โกศล','วัชชี'],answer:0,
+    explain:'ป่าอิสิปตนมฤคทายวันอยู่ใกล้เมืองพาราณสี แคว้นกาสี (ปัจจุบันคือสารนาถ)'}],
+  layout:{W:2700,
+   ground:[[0,600],[740,1300],[1440,1900],[2040,2700]],
+   plats:[[250,380,130],[450,310,110],[800,390,120],[980,320,120],[1150,390,110],[1500,380,130],[1680,300,120],[2100,380,140],[2300,310,140]],
+   coins:[[310,340],[500,270],[1040,280],[1740,260],[2360,270]]}
+ },
+ { /* ===== ด่าน 3 ===== */
+  title:'พุทธประวัติ: ตรัสรู้',
+  intro:'หลังบำเพ็ญเพียร พระสิทธัตถะทรงตรัสรู้ใต้ต้นโพธิ์ ณ พุทธคยา ในดินแดนของแคว้นมคธ',
+  theme:{top:'#14123f',bottom:'#4b4f9c',hill:'#2f6b4a',hill2:'#1f4f38',night:true}, tr:-2,
+  coinFacts:[
+   'ก่อนตรัสรู้ ทรงเห็นเทวทูต 4 (คนแก่ คนเจ็บ คนตาย สมณะ) จึงออกผนวชเมื่อพระชนมายุ 29 พรรษา',
+   'ทรงบำเพ็ญทุกกรกิริยา 6 ปี แล้วทรงเห็นว่าไม่ใช่ทางตรัสรู้ จึงเสวยพระกระยาหารตามปกติ',
+   'ทรงรับข้าวมธุปายาสจากนางสุชาดา แล้วลอยถาดทองคำในแม่น้ำเนรัญชรา',
+   'ทรงประทับใต้ต้นโพธิ์ที่พุทธคยา แคว้นมคธ และทรงชนะมารก่อนตรัสรู้',
+   'ทรงตรัสรู้เมื่อพระชนมายุ 35 พรรษา ในวันเพ็ญเดือน ๖'],
+  questions:[
+   {q:'พระพุทธเจ้าทรงตรัสรู้ใต้ต้นอะไร?',choices:['ต้นโพธิ์ (อัสสัตถะ)','ต้นสาละ','ต้นอโศก','ต้นไทร'],answer:0,
+    explain:'ตรัสรู้ใต้ต้นโพธิ์ ส่วนต้นสาละเกี่ยวข้องกับการประสูติและปรินิพพาน'},
+   {q:'พุทธคยา สถานที่ตรัสรู้ ตั้งอยู่ในแคว้นใด?',choices:['มคธ','กาสี','โกศล','อังคะ'],answer:0,
+    explain:'พุทธคยา (ตำบลอุรุเวลา) อยู่ในแคว้นมคธ'},
+   {q:'พระพุทธเจ้าทรงตรัสรู้เมื่อพระชนมายุเท่าใด?',choices:['35 พรรษา','29 พรรษา','45 พรรษา','80 พรรษา'],answer:0,
+    explain:'ทรงออกผนวชเมื่อ 29 พรรษา บำเพ็ญเพียร 6 ปี และตรัสรู้เมื่อ 35 พรรษา'},
+   {q:'ญาณที่ทำให้พระองค์ทรงสิ้นกิเลสอาสวะ ซึ่งได้ในยามสุดท้าย คือข้อใด?',choices:['อาสวักขยญาณ','ปุพเพนิวาสานุสสติญาณ','จุตูปปาตญาณ','อนาคตังสญาณ'],answer:0,
+    explain:'อาสวักขยญาณ คือญาณที่ทำให้อาสวะสิ้นไป เป็นญาณสุดท้ายในราตรีตรัสรู้'},
+   {q:'ในเทวทูต 4 สิ่งใดที่ทำให้เจ้าชายทรงเห็นหนทางพ้นทุกข์และน้อมพระทัยออกผนวช?',choices:['สมณะ (นักบวช)','คนแก่','คนเจ็บ','คนตาย'],answer:0,
+    explain:'คนแก่ คนเจ็บ คนตาย ทำให้สังเวชพระทัย ส่วนสมณะทำให้ทรงเห็นหนทางพ้นทุกข์'}],
+  layout:{W:2800,
+   ground:[[0,500],[640,1100],[1240,1700],[1840,2300],[2440,2800]],
+   plats:[[200,390,120],[380,320,120],[700,380,120],[880,310,120],[1280,380,120],[1460,300,120],[1900,380,120],[2080,300,120],[2500,380,130]],
+   coins:[[440,280],[940,270],[1520,260],[2140,260],[2560,340]]}
+ },
+ { /* ===== ด่าน 4 ===== */
+  title:'มรรคมีองค์ 8',
+  intro:'มรรคมีองค์ 8 คืออริยสัจข้อ "มรรค" พระพุทธเจ้าทรงเผยแผ่ไปในแคว้นต่างๆ เช่น มคธ โกศล และวัชชี',
+  theme:{top:'#6fd6a3',bottom:'#e6ffd9',hill:'#7ed957',hill2:'#4cae3a',night:false}, tr:3,
+  coinFacts:[
+   'มรรคมีองค์ 8 จัดเป็นไตรสิกขา คือ ศีล สมาธิ ปัญญา',
+   'หมวดปัญญา: สัมมาทิฏฐิ (เห็นชอบ) และสัมมาสังกัปปะ (ดำริชอบ)',
+   'หมวดศีล: สัมมาวาจา (เจรจาชอบ) สัมมากัมมันตะ (กระทำชอบ) สัมมาอาชีวะ (เลี้ยงชีพชอบ)',
+   'หมวดสมาธิ: สัมมาวายามะ (เพียรชอบ) สัมมาสติ (ระลึกชอบ) สัมมาสมาธิ (ตั้งใจมั่นชอบ)',
+   'มรรคมีองค์ 8 เรียกอีกอย่างว่าทางสายกลาง เป็นทางดับทุกข์'],
+  questions:[
+   {q:'องค์ประกอบข้อแรกของมรรคมีองค์ 8 คือข้อใด?',choices:['สัมมาทิฏฐิ (เห็นชอบ)','สัมมาวาจา (เจรจาชอบ)','สัมมาสติ (ระลึกชอบ)','สัมมาสมาธิ (ตั้งใจมั่นชอบ)'],answer:0,
+    explain:'ลำดับคือ สัมมาทิฏฐิ สัมมาสังกัปปะ สัมมาวาจา สัมมากัมมันตะ สัมมาอาชีวะ สัมมาวายามะ สัมมาสติ สัมมาสมาธิ'},
+   {q:'"สัมมาสังกัปปะ" หมายถึงอะไร?',choices:['ความดำริชอบ','ความเห็นชอบ','การเจรจาชอบ','การเลี้ยงชีพชอบ'],answer:0,
+    explain:'สัมมาสังกัปปะ คือ ดำริชอบ เช่น ดำริในการออกจากกาม ไม่พยาบาท ไม่เบียดเบียน'},
+   {q:'การพูดความจริง ไม่พูดเท็จ ไม่พูดส่อเสียด ไม่พูดคำหยาบ จัดเป็นองค์มรรคข้อใด?',choices:['สัมมาวาจา','สัมมากัมมันตะ','สัมมาอาชีวะ','สัมมาสติ'],answer:0,
+    explain:'การเจรจาชอบ คือ สัมมาวาจา'},
+   {q:'สัมมาอาชีวะ (เลี้ยงชีพชอบ) จัดอยู่ในไตรสิกขาหมวดใด?',choices:['ศีล','สมาธิ','ปัญญา','ทาน'],answer:0,
+    explain:'หมวดศีล ประกอบด้วย สัมมาวาจา สัมมากัมมันตะ และสัมมาอาชีวะ'},
+   {q:'สัมมาวายามะ สัมมาสติ และสัมมาสมาธิ จัดอยู่ในไตรสิกขาหมวดใด?',choices:['สมาธิ','ศีล','ปัญญา','ทาน'],answer:0,
+    explain:'ทั้งสามข้อเป็นหมวดสมาธิ (เกี่ยวกับการฝึกจิต)'}],
+  layout:{W:3000,
+   ground:[[0,450],[590,1000],[1140,1500],[1640,2000],[2140,2500],[2640,3000]],
+   plats:[[150,390,110],[300,320,110],[650,380,110],[820,300,110],[1180,390,110],[1330,310,110],[1700,380,110],[1850,300,110],[2200,380,110],[2350,300,110],[2700,380,120]],
+   coins:[[360,280],[880,260],[1390,270],[1910,260],[2760,340]]}
+ },
+ { /* ===== ด่าน 5 ===== */
+  title:'ทางสายกลาง',
+  intro:'พระพุทธเจ้าทรงสอนทางสายกลาง พระเจ้าพิมพิสารแห่งแคว้นมคธทรงอุปถัมภ์พระพุทธศาสนา โดยถวายเวฬุวันที่เมืองราชคฤห์',
+  theme:{top:'#ffcf4a',bottom:'#fff3c2',hill:'#9bd35a',hill2:'#6fb43c',night:false}, tr:5,
+  coinFacts:[
+   'ทางสายกลาง (มัชฌิมาปฏิปทา) คือข้อปฏิบัติที่ไม่ตึงหรือหย่อนเกินไป คือมรรคมีองค์ 8',
+   'ที่สุดโต่ง 2 อย่างที่ควรเว้น: กามสุขัลลิกานุโยค (หมกมุ่นในกาม) และอัตตกิลมถานุโยค (ทรมานตน)',
+   'พระเจ้าพิมพิสารแห่งแคว้นมคธทรงถวายเวฬุวัน เมืองราชคฤห์ เป็นอารามแห่งแรก',
+   'พระพุทธเจ้าทรงอุปมาด้วยพิณสามสาย สอนพระโสณะว่าความเพียรต้องพอดี',
+   'นักเรียนใช้ทางสายกลางได้ เช่น แบ่งเวลาเรียน พักผ่อน และเล่นอย่างพอดี'],
+  questions:[
+   {q:'ทางสายกลางที่พระพุทธเจ้าทรงสอน เรียกว่าอะไร?',choices:['มัชฌิมาปฏิปทา','อริยสัจ','ปฏิจจสมุปบาท','ไตรลักษณ์'],answer:0,
+    explain:'มัชฌิมาปฏิปทา แปลว่า ข้อปฏิบัติสายกลาง'},
+   {q:'ข้อใดคือที่สุดโต่งทั้ง 2 ที่พระพุทธเจ้าทรงสอนให้เว้น?',choices:['การหมกมุ่นในกามและการทรมานตนเอง','การให้ทานและการรักษาศีล','การเรียนและการทำงาน','การนั่งสมาธิและการเดินจงกรม'],answer:0,
+    explain:'คือ กามสุขัลลิกานุโยค และอัตตกิลมถานุโยค'},
+   {q:'ทางสายกลางในพระพุทธศาสนา ได้แก่ข้อใด?',choices:['มรรคมีองค์ 8','ศีล 5','พรหมวิหาร 4','ทาน ศีล ภาวนา'],answer:0,
+    explain:'ทางสายกลางก็คือมรรคมีองค์ 8'},
+   {q:'พิณสามสายที่ทรงสอนพระโสณะ เปรียบกับเรื่องใด?',choices:['ความเพียรที่พอดี ไม่ตึงไม่หย่อน','การเล่นดนตรีให้ไพเราะ','การรักษาศีล 8','การเดินทางไกล'],answer:0,
+    explain:'สายพิณตึงไปก็ขาด หย่อนไปก็ไม่เกิดเสียง ความเพียรก็ต้องพอดี'},
+   {q:'อารามแห่งแรกในพระพุทธศาสนาที่พระเจ้าพิมพิสาร แห่งแคว้นมคธ ทรงถวาย คือที่ใด?',choices:['เวฬุวัน','เชตวัน','โฆสิตาราม','บุพพาราม'],answer:0,
+    explain:'เวฬุวัน เมืองราชคฤห์ แคว้นมคธ ส่วนเชตวันอยู่ที่สาวัตถี แคว้นโกศล'}],
+  layout:{W:3200,
+   ground:[[0,400],[540,900],[1040,1400],[1540,1900],[2040,2400],[2540,3200]],
+   plats:[[150,390,110],[320,310,100],[600,380,110],[760,300,110],[1100,390,110],[1250,300,100],[1600,380,110],[1760,300,110],[2100,380,110],[2250,300,100],[2600,380,110],[2760,300,110],[2920,380,100]],
+   coins:[[370,270],[810,260],[1300,260],[1810,260],[2810,260]]}
+ }
+];
+
+/* =====================================================================
+   ส่วนระบบเกม (ไม่จำเป็นต้องแก้ไขเพื่อเปลี่ยนเนื้อหา)
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const cv = $('game'), ctx = cv.getContext('2d');
+const GROUND_Y = 470, STEP = 1000/60;
+const PHYS = {G:0.62, JUMP:-13.2, SPEED:4.6, MAXFALL:15};
+
+const S = {
+  mode:'menu',            // menu | playing | celebrate | quiz | result | paused | over
+  student:null, lvIdx:0, coins:0, time:CONFIG.timeLimit, runScore:0,
+  rects:[], coinList:[], W:2600, camX:0, t:0, parts:[],
+  p:{x:60,y:0,w:34,h:46,vx:0,vy:0,face:1,onGround:false,coyote:0,jumpBuf:0,safeX:60,safeR:null,run:0},
+  inp:{left:false,right:false,jump:false}, quiz:null, levelStartT:0, prevScreen:'sMenu'
+};
+
+/* ---------- ที่เก็บข้อมูลนักเรียน (localStorage) ---------- */
+const Store = {
+  load(){ try{ return JSON.parse(localStorage.getItem(CONFIG.storageKey))||{students:{},last:null}; }catch(e){ return {students:{},last:null}; } },
+  save(db){ try{ localStorage.setItem(CONFIG.storageKey, JSON.stringify(db)); }catch(e){} }
+};
+let DB = Store.load();
+function studentKey(n,r){ return (n.trim()+'|'+(r||'').trim()).toLowerCase(); }
+function getStudent(){ return S.student ? DB.students[S.student] : null; }
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------- เสียง (สังเคราะห์ด้วย WebAudio ไม่ต้องใช้ไฟล์) ---------- */
+const MEL  = [0,2,4,7,9,7,4,2, 0,2,4,7,12,9,7,4, 5,7,9,12,9,7,5,4, 2,4,7,4,2,0,null,0]; // ทำนองเพนทาโทนิก 32 จังหวะ
+const BASS = [0,0,5,5,7,7,0,-5];
+const Sound = {
+  ctx:null, master:null, muted:(localStorage.getItem('mb_muted')==='1'), timer:null, step:0, next:0, tr:0,
+  init(){
+    if(!this.ctx){
+      const AC = window.AudioContext||window.webkitAudioContext; if(!AC) return;
+      this.ctx = new AC(); this.master = this.ctx.createGain();
+      this.master.gain.value = this.muted?0:1; this.master.connect(this.ctx.destination);
+    }
+    if(this.ctx.state==='suspended') this.ctx.resume();
+  },
+  tone(f,t0,d,type,vol,slideTo){
+    if(!this.ctx) return;
+    const o=this.ctx.createOscillator(), g=this.ctx.createGain();
+    o.type=type||'square'; o.frequency.setValueAtTime(f,t0);
+    if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo,t0+d);
+    g.gain.setValueAtTime(vol||0.1,t0); g.gain.exponentialRampToValueAtTime(0.0001,t0+d);
+    o.connect(g); g.connect(this.master); o.start(t0); o.stop(t0+d+0.02);
+  },
+  sfx(n){
+    if(!this.ctx||this.muted) return; const t=this.ctx.currentTime;
+    if(n==='jump') this.tone(300,t,0.14,'square',0.12,650);
+    else if(n==='coin'){ this.tone(988,t,0.08,'square',0.12); this.tone(1319,t+0.08,0.22,'square',0.12); }
+    else if(n==='ok'){ [523,659,784,1047].forEach((f,i)=>this.tone(f,t+i*0.09,0.18,'square',0.12)); }
+    else if(n==='bad'){ this.tone(220,t,0.35,'sawtooth',0.12,90); }
+    else if(n==='fall'){ this.tone(420,t,0.5,'sawtooth',0.1,70); }
+    else if(n==='win'){ [523,659,784,659,784,1047,1319].forEach((f,i)=>this.tone(f,t+i*0.12,0.25,'square',0.12)); }
+  },
+  sched(){
+    while(this.next < this.ctx.currentTime+0.25){
+      const i=this.step%MEL.length, n=MEL[i];
+      if(n!==null) this.tone(523.25*Math.pow(2,(n+this.tr)/12),this.next,0.19,'square',0.045);
+      if(i%4===0){ const b=BASS[(i/4)%BASS.length]; this.tone(130.81*Math.pow(2,(b+this.tr)/12),this.next,0.7,'triangle',0.11); }
+      this.next+=0.2; this.step++;
+    }
+  },
+  start(tr){ this.stop(); if(!this.ctx) return; this.tr=tr||0; this.step=0; this.next=this.ctx.currentTime+0.1; this.timer=setInterval(()=>this.sched(),60); },
+  stop(){ if(this.timer){ clearInterval(this.timer); this.timer=null; } },
+  setMute(m){ this.muted=m; localStorage.setItem('mb_muted',m?'1':'0'); if(this.master) this.master.gain.value=m?0:1; $('btnMute').textContent=m?'🔇':'🔊'; }
+};
+document.addEventListener('visibilitychange',()=>{ if(Sound.ctx){ document.hidden?Sound.ctx.suspend():Sound.ctx.resume(); } if(document.hidden&&S.mode==='playing') pauseGame(); });
+
+/* ---------- การสลับหน้าจอ ---------- */
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(e=>e.classList.remove('show'));
+  if(id) $(id).classList.add('show');
+}
+function setHud(on){ $('hud').style.display=on?'flex':'none'; $('touch').classList.toggle('active',on&&S.mode==='playing'); }
+function toast(msg,ms){ const t=$('toast'); t.textContent=msg; t.style.display='block'; clearTimeout(toast.h); toast.h=setTimeout(()=>t.style.display='none',ms||4200); }
+
+/* ---------- โหลดด่าน ---------- */
+function loadLevel(i){
+  const L=LEVELS[i], lay=L.layout; S.lvIdx=i; S.W=lay.W;
+  S.rects=[];
+  lay.ground.forEach(g=>S.rects.push({x:g[0],y:GROUND_Y,w:g[1]-g[0],h:70,ground:true}));
+  lay.plats.forEach(p=>S.rects.push({x:p[0],y:p[1],w:p[2],h:18}));
+  S.coinList=lay.coins.map(c=>({x:c[0],y:c[1],got:false}));
+  S.coins=0; S.time=CONFIG.timeLimit; S.parts=[];
+  const p=S.p; p.x=60; p.y=GROUND_Y-p.h; p.vx=p.vy=0; p.face=1; p.onGround=true; p.coyote=0; p.jumpBuf=0; p.safeX=60; p.safeR=S.rects[0]; p.run=0;
+  S.camX=0; updateHud();
+}
+function updateHud(){
+  const st=getStudent();
+  $('hudName').textContent='👤 '+(st?st.name:'-');
+  $('hudLevel').textContent='ด่าน '+(S.lvIdx+1)+'/'+LEVELS.length;
+  $('hudCoins').textContent='●'.repeat(S.coins)+'○'.repeat(CONFIG.coinsPerLevel-S.coins);
+  $('hudScore').textContent='⭐ '+S.runScore;
+  const tm=Math.max(0,Math.ceil(S.time)); $('hudTime').textContent='⏱ '+Math.floor(tm/60)+':'+String(tm%60).padStart(2,'0');
+  $('hudTime').style.background=tm<=20?'rgba(200,30,30,.8)':'rgba(0,0,0,.5)';
+  $('btnMute').textContent=Sound.muted?'🔇':'🔊';
+}
+
+/* ---------- ลำดับการเล่น ---------- */
+function needStudent(){ if(!getStudent()){ $('inName').value=''; $('inRoom').value=''; showScreen('sName'); $('inName').focus(); return true; } return false; }
+function beginRun(lv){
+  if(needStudent()) return;
+  Sound.init(); S.runScore=0; showIntro(lv);
+}
+function showIntro(lv){
+  const L=LEVELS[lv]; S.lvIdx=lv; loadLevel(lv); S.mode='menu';
+  $('introTitle').textContent='ด่าน '+(lv+1)+': '+L.title; $('introText').textContent=L.intro; $('introTime').textContent=CONFIG.timeLimit;
+  setHud(false); showScreen('sIntro');
+}
+function startPlay(){
+  Sound.init(); Sound.start(LEVELS[S.lvIdx].tr);
+  S.mode='playing'; S.levelStartT=performance.now(); showScreen(null); setHud(true); updateHud();
+  toast('เก็บเหรียญความรู้ให้ครบ 5 เหรียญ! 🪙',2500);
+}
+function pauseGame(){ if(S.mode!=='playing') return; S.mode='paused'; S.inp.left=S.inp.right=S.inp.jump=false; clearTouchUI(); showScreen('sPause'); $('touch').classList.remove('active'); }
+function resumeGame(){ if(S.mode!=='paused') return; S.mode='playing'; showScreen(null); $('touch').classList.add('active'); }
+function toMenu(){ S.mode='menu'; Sound.stop(); setHud(false); $('toast').style.display='none'; loadLevel(0); renderMenu(); showScreen('sMenu'); }
+function renderMenu(){
+  const st=getStudent(); $('menuUser').textContent=st?('สวัสดี '+st.name+(st.room?' ('+st.room+')':'')):'ยังไม่ได้ระบุชื่อผู้เล่น';
+  const ch=$('chips'); ch.innerHTML='';
+  const unl=st?st.unlocked:1;
+  LEVELS.forEach((L,i)=>{ const b=document.createElement('button'); b.className='btn small gold'; b.textContent=i+1; b.disabled=i+1>unl; b.title=L.title; b.onclick=()=>beginRun(i); ch.appendChild(b); });
+}
+
+/* ---------- เหรียญ / อนุภาค ---------- */
+function burst(x,y,color){ for(let i=0;i<14;i++){ const a=Math.random()*6.28,s=1+Math.random()*3.5; S.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:30+Math.random()*15,c:color}); } }
+function collectCoin(c){
+  c.got=true; S.coins++; Sound.sfx('coin'); burst(c.x,c.y,'#ffd43b');
+  const L=LEVELS[S.lvIdx]; toast('🪙 เหรียญที่ '+S.coins+': '+L.coinFacts[S.coins-1],4800); updateHud();
+  if(S.coins>=CONFIG.coinsPerLevel){ S.mode='celebrate'; S.inp.left=S.inp.right=S.inp.jump=false; clearTouchUI(); $('touch').classList.remove('active'); setTimeout(openQuiz,1800); }
+}
+
+/* ---------- ฟิสิกส์ (รันที่ 60 ครั้ง/วินาที) ---------- */
+function update(){
+  S.t++;
+  S.parts.forEach(q=>{ q.x+=q.vx; q.y+=q.vy; q.vy+=0.15; q.life--; }); S.parts=S.parts.filter(q=>q.life>0);
+  if(S.mode==='menu'){ S.camX=(S.camX+0.7)%Math.max(1,S.W-960); return; }
+  if(S.mode!=='playing') return;
+  const p=S.p, inp=S.inp;
+  // เวลา
+  S.time-=1/60; if(S.time<=0){ S.time=0; timeUp(); return; }
+  // เดินซ้าย-ขวา
+  const tx=(inp.right?1:0)-(inp.left?1:0);
+  p.vx+=(tx*PHYS.SPEED-p.vx)*(p.onGround?0.28:0.16);
+  if(!tx&&Math.abs(p.vx)<0.1) p.vx=0; if(tx) p.face=tx;
+  p.x=Math.max(0,Math.min(S.W-p.w,p.x+p.vx));
+  // กระโดด (coyote time + jump buffer ให้กดง่ายขึ้น)
+  if(p.onGround) p.coyote=7; else if(p.coyote>0) p.coyote--;
+  if(p.jumpBuf>0) p.jumpBuf--;
+  if(p.jumpBuf>0&&p.coyote>0){ p.vy=PHYS.JUMP; p.coyote=0; p.jumpBuf=0; p.onGround=false; Sound.sfx('jump'); }
+  if(!inp.jump&&p.vy<-4) p.vy*=0.6;
+  // แรงโน้มถ่วง + ชนพื้น/แท่น (ลงจอดจากด้านบนเท่านั้น)
+  p.vy=Math.min(p.vy+PHYS.G,PHYS.MAXFALL);
+  const prevB=p.y+p.h; p.y+=p.vy; p.onGround=false;
+  if(p.vy>=0){
+    for(const r of S.rects){
+      if(p.x+p.w>r.x+4&&p.x<r.x+r.w-4&&prevB<=r.y+1&&p.y+p.h>=r.y){
+        p.y=r.y-p.h; p.vy=0; p.onGround=true;
+        if(p.x>r.x+25&&p.x+p.w<r.x+r.w-25){ p.safeX=p.x; p.safeR=r; }
+        break;
+      }
+    }
+  }
+  if(p.onGround&&Math.abs(p.vx)>0.5) p.run+=Math.abs(p.vx)*0.09;
+  // ตกเหว -> เกิดใหม่บนพื้นปลอดภัยล่าสุด
+  if(p.y>620){
+    Sound.sfx('fall'); const r=p.safeR||S.rects[0];
+    p.x=Math.min(Math.max(p.safeX-100,r.x+20),r.x+r.w-p.w-20); p.y=r.y-p.h-1; p.vx=p.vy=0;
+    toast('ตกเหว! ลองใหม่อีกครั้ง 💪',1600);
+  }
+  // เก็บเหรียญ
+  for(const c of S.coinList){
+    if(!c.got&&Math.abs(p.x+p.w/2-c.x)<28&&Math.abs(p.y+p.h/2-c.y)<36){ collectCoin(c); if(S.mode!=='playing') break; }
+  }
+  // กล้องตามตัวละคร
+  const target=Math.max(0,Math.min(S.W-960,p.x-380)); S.camX+=(target-S.camX)*0.12;
+  if(S.t%6===0) updateHud();
+}
+function timeUp(){
+  S.mode='over'; Sound.stop(); Sound.sfx('bad'); S.inp.left=S.inp.right=S.inp.jump=false; $('touch').classList.remove('active');
+  recordAttempt({lv:S.lvIdx,correct:0,score:0,pass:false,timeout:true,time:CONFIG.timeLimit});
+  showResult({title:'⏰ หมดเวลา!',body:'เก็บเหรียญได้ '+S.coins+'/'+CONFIG.coinsPerLevel+' เหรียญ ลองใหม่อีกครั้งนะ',retry:true,next:false});
+}
+
+/* ---------- ระบบคำถาม ---------- */
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function openQuiz(){
+  S.mode='quiz'; Sound.sfx('ok');
+  const L=LEVELS[S.lvIdx];
+  S.quiz={ i:0, correct:0, score:0, picked:null, locked:false,
+    list:L.questions.map(q=>{ const order=shuffle([0,1,2,3].slice(0,q.choices.length)); return {q:q.q,explain:q.explain,choices:order.map(k=>q.choices[k]),ans:order.indexOf(q.answer)}; }) };
+  $('toast').style.display='none'; showScreen('sQuiz'); renderQ();
+}
+function renderQ(){
+  const Q=S.quiz, q=Q.list[Q.i], letters=['ก','ข','ค','ง'];
+  $('quizLv').textContent='ด่าน '+(S.lvIdx+1)+': '+LEVELS[S.lvIdx].title;
+  $('quizNo').textContent='ข้อ '+(Q.i+1)+'/'+Q.list.length;
+  $('quizSc').textContent='คะแนน '+Q.score+'/'+(Q.list.length*CONFIG.pointsPerCorrect);
+  $('quizQ').textContent=q.q;
+  const box=$('quizChoices'); box.innerHTML='';
+  q.choices.forEach((c,i)=>{ const b=document.createElement('button'); b.className='choice'; b.innerHTML='<b>'+letters[i]+'</b>'+esc(c); b.onclick=()=>pick(i); box.appendChild(b); });
+  $('quizFb').textContent=''; $('quizFb').className=''; Q.picked=null; Q.locked=false;
+  $('bConfirm').textContent='ยืนยันคำตอบ';
+}
+function pick(i){
+  const Q=S.quiz; if(Q.locked) return; Q.picked=i;
+  [...$('quizChoices').children].forEach((b,k)=>b.classList.toggle('sel',k===i));
+}
+function confirmAnswer(){
+  const Q=S.quiz; if(!Q) return;
+  if(Q.locked){ // ไปข้อถัดไป
+    if(Q.i<Q.list.length-1){ Q.i++; renderQ(); } else finishQuiz();
+    return;
+  }
+  if(Q.picked===null){ $('quizFb').className='bad'; $('quizFb').textContent='กรุณาเลือกคำตอบก่อนนะ 😊'; return; }
+  Q.locked=true; const q=Q.list[Q.i], ok=Q.picked===q.ans;
+  [...$('quizChoices').children].forEach((b,k)=>{ b.classList.remove('sel'); if(k===q.ans) b.classList.add('ok'); else if(k===Q.picked) b.classList.add('bad'); });
+  if(ok){ Q.correct++; Q.score+=CONFIG.pointsPerCorrect; S.runScore+=CONFIG.pointsPerCorrect; Sound.sfx('ok'); }
+  else Sound.sfx('bad');
+  $('quizFb').className=ok?'ok':'bad';
+  $('quizFb').textContent=(ok?'✅ ถูกต้อง! +'+CONFIG.pointsPerCorrect+' คะแนน  ':'❌ ยังไม่ถูก  ')+q.explain;
+  $('quizSc').textContent='คะแนน '+Q.score+'/'+(Q.list.length*CONFIG.pointsPerCorrect);
+  $('bConfirm').textContent=Q.i<Q.list.length-1?'ข้อต่อไป ▶':'ดูผลลัพธ์ 🏁';
+}
+function finishQuiz(){
+  const Q=S.quiz, pass=Q.correct>=CONFIG.passCorrect, used=Math.round(CONFIG.timeLimit-S.time);
+  recordAttempt({lv:S.lvIdx,correct:Q.correct,score:Q.score,pass,time:used});
+  if(!pass) S.runScore-=Q.score;
+  S.mode='result'; Sound.stop();
+  const last=S.lvIdx===LEVELS.length-1;
+  if(pass){ Sound.sfx('win');
+    const st=getStudent(); if(!last&&st.unlocked<S.lvIdx+2){ st.unlocked=S.lvIdx+2; Store.save(DB); }
+    const stars=Q.correct>=5?3:Q.correct>=4?2:1;
+    showResult({title:last?'🎉 ยินดีด้วย! จบเกมแล้ว':'🎉 ผ่านด่านแล้ว!',stars,score:Q.score,correct:Q.correct,time:used,next:!last,final:last,retry:false});
+  } else {
+    showResult({title:'😅 ยังไม่ผ่านด่าน',body:'ตอบถูก '+Q.correct+'/'+Q.list.length+' ข้อ ต้องถูกอย่างน้อย '+CONFIG.passCorrect+' ข้อ ลองอีกครั้งนะ ทบทวนจากเหรียญความรู้ได้เลย',retry:true,next:false});
+  }
+}
+function showResult(r){
+  S.mode='result'; setHud(false);
+  let h='<h3 style="font-size:34px">'+r.title+'</h3>';
+  if(r.stars) h+='<div class="stars">'+'⭐'.repeat(r.stars)+'<span style="opacity:.25">'+'⭐'.repeat(3-r.stars)+'</span></div>';
+  if(r.body) h+='<p>'+r.body+'</p>';
+  if(r.score!==undefined) h+='<p>ตอบถูก <b>'+r.correct+'/5</b> ข้อ · ได้ <b>'+r.score+'</b> คะแนน · ใช้เวลา <b>'+r.time+'</b> วินาที</p>';
+  if(r.final) h+='<p>คะแนนรอบนี้รวม <b>'+S.runScore+'/'+(LEVELS.length*5*CONFIG.pointsPerCorrect)+'</b> คะแนน<br>ขอให้ทุกคนดำเนินรอยตามพระพุทธเจ้า ด้วยทางสายกลาง 🙏</p>';
+  h+='<div class="row">';
+  if(r.next) h+='<button class="btn green" id="rNext">ด่านถัดไป ▶</button>';
+  if(r.retry||r.score!==undefined) h+='<button class="btn" id="rRetry">↻ เล่นด่านนี้ใหม่</button>';
+  h+='<button class="btn small gold" id="rDash">📊 แดชบอร์ด</button><button class="btn small blue" id="rMenu">เมนู</button></div>';
+  $('resultPanel').innerHTML=h; showScreen('sResult');
+  const on=(id,fn)=>{ const e=$(id); if(e) e.onclick=fn; };
+  on('rNext',()=>showIntro(S.lvIdx+1)); on('rRetry',()=>{ showIntro(S.lvIdx); });
+  on('rDash',()=>openDash('sResult')); on('rMenu',toMenu);
+}
+
+/* ---------- บันทึกผล / แดชบอร์ด ---------- */
+function recordAttempt(a){ const st=getStudent(); if(!st) return; a.ts=Date.now(); st.attempts.push(a); Store.save(DB); }
+function stats(st){
+  const per=LEVELS.map((L,i)=>{ const at=st.attempts.filter(a=>a.lv===i), passes=at.filter(a=>a.pass);
+    return {title:L.title,n:at.length,best:at.reduce((m,a)=>Math.max(m,a.score),0),passed:passes.length>0,bestTime:passes.length?Math.min(...passes.map(a=>a.time)):null}; });
+  const total=per.reduce((s,x)=>s+x.best,0), answered=st.attempts.filter(a=>!a.timeout), qn=answered.length*5, qc=answered.reduce((s,a)=>s+a.correct,0);
+  const timed=st.attempts.filter(a=>a.pass), avg=timed.length?Math.round(timed.reduce((s,a)=>s+a.time,0)/timed.length):null;
+  return {per,total,plays:st.attempts.length,acc:qn?Math.round(qc*100/qn):0,avgTime:avg,passed:per.filter(x=>x.passed).length};
+}
+function openDash(from){
+  S.prevScreen=from||'sMenu'; const st=getStudent(); let h='';
+  if(st){ const s=stats(st);
+    h+='<div style="text-align:center;font-weight:800;color:#c2410c;font-size:20px">👤 '+esc(st.name)+(st.room?' · '+esc(st.room):'')+'</div>';
+    h+='<div class="cards"><div class="card">คะแนนสูงสุดรวม<b>'+s.total+'/'+(LEVELS.length*5*CONFIG.pointsPerCorrect)+'</b></div><div class="card">ผ่านแล้ว<b>'+s.passed+'/'+LEVELS.length+' ด่าน</b></div>'+
+       '<div class="card">ความแม่นยำ<b>'+s.acc+'%</b></div><div class="card">เวลาเฉลี่ย/ด่าน<b>'+(s.avgTime===null?'-':s.avgTime+' วิ')+'</b></div><div class="card">จำนวนครั้งที่เล่น<b>'+s.plays+'</b></div></div>';
+    h+='<table><tr><th>ด่าน</th><th>เล่นกี่ครั้ง</th><th>คะแนนสูงสุด</th><th>เวลาดีที่สุด</th><th>สถานะ</th></tr>';
+    s.per.forEach((x,i)=>{ h+='<tr><td style="text-align:left">'+(i+1)+'. '+x.title+'</td><td>'+x.n+'</td><td>'+x.best+'/50</td><td>'+(x.bestTime===null?'-':x.bestTime+' วิ')+'</td><td>'+(x.passed?'✅ ผ่าน':(x.n?'🔄 กำลังเล่น':'-'))+'</td></tr>'; });
+    h+='</table>';
+  } else h+='<p style="text-align:center">ยังไม่มีผู้เล่นที่ระบุชื่อ</p>';
+  const all=Object.values(DB.students).map(x=>({x,s:stats(x)})).sort((a,b)=>b.s.total-a.s.total);
+  h+='<div style="font-weight:800;margin-top:8px;font-size:19px">🏆 ตารางคะแนนในเครื่องนี้ (ทุกคน)</div><table><tr><th>#</th><th>ชื่อ</th><th>ห้อง/เลขที่</th><th>คะแนนรวม</th><th>ผ่านด่าน</th><th>ความแม่นยำ</th><th>เล่นล่าสุด</th></tr>';
+  all.forEach((o,i)=>{ const last=o.x.attempts.length?new Date(o.x.attempts[o.x.attempts.length-1].ts).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'}):'-';
+    h+='<tr><td>'+(i+1)+'</td><td>'+esc(o.x.name)+'</td><td>'+esc(o.x.room||'-')+'</td><td>'+o.s.total+'</td><td>'+o.s.passed+'/'+LEVELS.length+'</td><td>'+o.s.acc+'%</td><td>'+last+'</td></tr>'; });
+  if(!all.length) h+='<tr><td colspan="7">ยังไม่มีข้อมูล</td></tr>';
+  h+='</table>';
+  $('dashBody').innerHTML=h; showScreen('sDash');
+}
+function exportCsv(){
+  const rows=[['ชื่อ','ห้อง/เลขที่','ด่าน','ตอบถูก','คะแนน','ผ่าน','หมดเวลา','เวลา(วินาที)','วันที่-เวลา']];
+  Object.values(DB.students).forEach(st=>st.attempts.forEach(a=>rows.push([st.name,st.room||'',a.lv+1,a.correct,a.score,a.pass?'ผ่าน':'ไม่ผ่าน',a.timeout?'ใช่':'',a.time,new Date(a.ts).toLocaleString('th-TH')])));
+  const csv='\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download='ผลการเล่น_มาริโอ้เก็บเหรียญ.csv'; document.body.appendChild(a); a.click(); a.remove();
+}
+
+/* ---------- การวาดภาพ ---------- */
+const STARS=Array.from({length:60},(_,i)=>[(i*149)%960,(i*83)%300,1+(i%3)]);
+function drawSky(L){
+  const th=L.theme, g=ctx.createLinearGradient(0,0,0,540); g.addColorStop(0,th.top); g.addColorStop(1,th.bottom);
+  ctx.fillStyle=g; ctx.fillRect(0,0,960,540);
+  if(th.night){ ctx.fillStyle='#fff'; STARS.forEach(s=>{ ctx.globalAlpha=0.5+0.5*Math.sin(S.t*0.04+s[0]); ctx.fillRect(s[0],s[1],s[2],s[2]); }); ctx.globalAlpha=1;
+    ctx.fillStyle='#fff6c9'; ctx.beginPath(); ctx.arc(800,90,38,0,6.3); ctx.fill(); ctx.fillStyle=th.top; ctx.beginPath(); ctx.arc(815,80,34,0,6.3); ctx.fill(); }
+  else { ctx.fillStyle='#fff3a0'; ctx.beginPath(); ctx.arc(820,90,44,0,6.3); ctx.fill(); ctx.fillStyle='rgba(255,255,255,.35)'; ctx.beginPath(); ctx.arc(820,90,58,0,6.3); ctx.fill(); }
+  // เมฆ
+  ctx.fillStyle=th.night?'rgba(180,190,255,.25)':'rgba(255,255,255,.92)';
+  for(let i=0;i<7;i++){ const x=(((i*310-S.camX*0.25)%2200)+2200)%2200-250, y=60+(i*47)%120;
+    ctx.beginPath(); ctx.arc(x,y,24,0,6.3); ctx.arc(x+28,y-12,30,0,6.3); ctx.arc(x+62,y,26,0,6.3); ctx.arc(x+30,y+8,26,0,6.3); ctx.fill(); }
+  // เนินเขา
+  [[0.45,th.hill2,380,90,0.004],[0.6,th.hill,420,70,0.006]].forEach(([par,col,base,amp,fr])=>{
+    ctx.fillStyle=col; ctx.beginPath(); ctx.moveTo(0,540);
+    for(let x=0;x<=960;x+=20){ const wx=x+S.camX*par; ctx.lineTo(x,base-Math.abs(Math.sin(wx*fr))*amp-Math.sin(wx*fr*2.3)*14); }
+    ctx.lineTo(960,540); ctx.fill(); });
+}
+function drawTree(x,y,night){
+  ctx.fillStyle='#8a5a2b'; ctx.fillRect(x-7,y-60,14,60);
+  ctx.fillStyle=night?'#2c8a50':'#2fb64f'; ctx.beginPath(); ctx.arc(x,y-78,32,0,6.3); ctx.arc(x-24,y-58,24,0,6.3); ctx.arc(x+24,y-58,24,0,6.3); ctx.fill();
+}
+function drawWheelFlag(x){
+  ctx.fillStyle='#d9d9d9'; ctx.fillRect(x,GROUND_Y-210,6,210);
+  ctx.fillStyle='#ffd43b'; ctx.fillRect(x+6,GROUND_Y-210,90,58); ctx.strokeStyle='#b34700'; ctx.lineWidth=3; ctx.strokeRect(x+6,GROUND_Y-210,90,58);
+  const cx=x+51,cy=GROUND_Y-181; ctx.strokeStyle='#b34700'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(cx,cy,18,0,6.3); ctx.stroke();
+  for(let i=0;i<8;i++){ const a=i*Math.PI/4+S.t*0.02; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos(a)*18,cy+Math.sin(a)*18); ctx.stroke(); }
+  ctx.fillStyle='#b34700'; ctx.beginPath(); ctx.arc(cx,cy,4,0,6.3); ctx.fill();
+}
+function drawWorld(L){
+  const cam=S.camX; ctx.save(); ctx.translate(-Math.round(cam),0);
+  // น้ำในเหว
+  const wy=500; ctx.fillStyle='#2b6fd6'; ctx.fillRect(cam,wy,960,50);
+  ctx.fillStyle='rgba(255,255,255,.5)'; for(let x=Math.floor(cam/40)*40;x<cam+1000;x+=40){ ctx.fillRect(x+((S.t*0.6)%40),wy+4+Math.sin(x*0.1+S.t*0.1)*2,18,3); }
+  // ต้นไม้ + ธงธรรมจักรท้ายด่าน
+  S.rects.filter(r=>r.ground).forEach(r=>{ for(let x=r.x+160;x<r.x+r.w-100;x+=430) if(x>cam-80&&x<cam+1040) drawTree(x,GROUND_Y,L.theme.night); });
+  if(S.W-120>cam-120&&S.W-220<cam+960) drawWheelFlag(S.W-190);
+  // พื้นและแท่นอิฐ
+  S.rects.forEach(r=>{ if(r.x+r.w<cam-10||r.x>cam+970) return;
+    if(r.ground){ ctx.fillStyle='#b9652b'; ctx.fillRect(r.x,r.y,r.w,r.h); ctx.strokeStyle='#8a4519'; ctx.lineWidth=2;
+      for(let y=r.y+14;y<r.y+r.h;y+=18){ ctx.beginPath(); ctx.moveTo(r.x,y); ctx.lineTo(r.x+r.w,y); ctx.stroke(); }
+      for(let k=0,y=r.y+14;y<r.y+r.h+18;y+=18,k++){ for(let x=r.x+(k%2?20:0);x<r.x+r.w;x+=40){ ctx.beginPath(); ctx.moveTo(x,y-18); ctx.lineTo(x,y); ctx.stroke(); } }
+      ctx.fillStyle='#3fc24f'; ctx.fillRect(r.x,r.y,r.w,12); ctx.fillStyle='#2a9a3a'; ctx.fillRect(r.x,r.y+12,r.w,4);
+    } else {
+      ctx.fillStyle='#f08c38'; ctx.fillRect(r.x,r.y,r.w,r.h); ctx.strokeStyle='#7a3a10'; ctx.lineWidth=2.5; ctx.strokeRect(r.x+1,r.y+1,r.w-2,r.h-2);
+      for(let x=r.x+36;x<r.x+r.w-4;x+=36){ ctx.beginPath(); ctx.moveTo(x,r.y); ctx.lineTo(x,r.y+r.h); ctx.stroke(); }
+      ctx.fillStyle='rgba(255,255,255,.3)'; ctx.fillRect(r.x+3,r.y+3,r.w-6,4);
+    } });
+  // เหรียญ
+  S.coinList.forEach(c=>{ if(c.got) return; const y=c.y+Math.sin(S.t*0.08+c.x)*5, w=Math.max(3,Math.abs(Math.cos(S.t*0.07+c.x*0.01))*16);
+    ctx.fillStyle='rgba(255,230,100,.35)'; ctx.beginPath(); ctx.arc(c.x,y,26,0,6.3); ctx.fill();
+    ctx.fillStyle='#f59f00'; ctx.beginPath(); ctx.ellipse(c.x,y,w,18,0,0,6.3); ctx.fill();
+    ctx.fillStyle='#ffd43b'; ctx.beginPath(); ctx.ellipse(c.x,y,w*0.8,14.5,0,0,6.3); ctx.fill();
+    if(w>9){ ctx.fillStyle='#b34700'; ctx.font='bold 17px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('ธ',c.x,y+1); } });
+  // ตัวละคร (ตัวการ์ตูนต้นแบบของเกมนี้: "น้องสิทธิ")
+  if(S.mode!=='menu') drawPlayer();
+  // อนุภาค
+  S.parts.forEach(q=>{ ctx.globalAlpha=Math.min(1,q.life/20); ctx.fillStyle=q.c; ctx.fillRect(q.x-3,q.y-3,6,6); }); ctx.globalAlpha=1;
+  ctx.restore();
+}
+function drawPlayer(){
+  const p=S.p; ctx.save(); ctx.translate(p.x+p.w/2,p.y+p.h); ctx.scale(p.face,1);
+  const air=!p.onGround, sw=air?0:Math.sin(p.run)*5;
+  // ขา
+  ctx.fillStyle='#ffd0a0'; ctx.fillRect(-9+(air?-2:sw*0.4),-9,8,9); ctx.fillRect(1+(air?4:-sw*0.4),-9+(air?-4:0),8,9);
+  ctx.fillStyle='#c2410c'; ctx.fillRect(-10+(air?-2:sw*0.4),-3,10,4); ctx.fillRect(0+(air?4:-sw*0.4),-3+(air?-4:0),10,4);
+  // ลำตัว (จีวรสีส้มสดใส)
+  ctx.fillStyle='#f08c00'; ctx.beginPath(); ctx.roundRect?ctx.roundRect(-14,-28,28,22,7):ctx.rect(-14,-28,28,22); ctx.fill();
+  ctx.fillStyle='#ffe066'; ctx.fillRect(-14,-20,28,5);
+  // แขน
+  ctx.fillStyle='#ffd0a0'; const as=air?-6:-sw; ctx.beginPath(); ctx.arc(-15,-18+as*0.5,4.5,0,6.3); ctx.arc(15,-18-as*0.5,4.5,0,6.3); ctx.fill();
+  // หัว
+  ctx.fillStyle='#ffd0a0'; ctx.beginPath(); ctx.arc(0,-33,13,0,6.3); ctx.fill();
+  ctx.fillStyle='#2b2118'; ctx.beginPath(); ctx.arc(0,-35,13,3.35,6.07); ctx.fill(); ctx.beginPath(); ctx.arc(0,-48,4.5,0,6.3); ctx.fill();
+  // ใบหน้า
+  ctx.fillStyle='#222'; ctx.beginPath(); ctx.arc(3,-33,2.2,0,6.3); ctx.arc(9,-33,2.2,0,6.3); ctx.fill();
+  ctx.fillStyle='rgba(255,100,100,.5)'; ctx.beginPath(); ctx.arc(10,-28,3,0,6.3); ctx.fill();
+  ctx.strokeStyle='#7a2e00'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(7,-29,3,0.2,2.9); ctx.stroke();
+  ctx.restore();
+}
+function render(){
+  const L=LEVELS[S.lvIdx]; drawSky(L); drawWorld(L);
+}
+
+/* ---------- ลูปเกม (fixed timestep 60Hz เพื่อให้ความเร็วเท่ากันทุกเครื่อง) ---------- */
+let lastT=0, acc=0;
+function frame(t){
+  const dt=Math.min(100,t-lastT); lastT=t; acc+=dt;
+  while(acc>=STEP){ update(); acc-=STEP; }
+  render(); requestAnimationFrame(frame);
+}
+
+/* ---------- การควบคุม ---------- */
+function pressJump(){ S.p.jumpBuf=7; S.inp.jump=true; }
+const KEYMAP={ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',ArrowUp:'jump',KeyW:'jump',Space:'jump'};
+addEventListener('keydown',e=>{
+  if(e.target&&e.target.tagName==='INPUT'){ if(e.key==='Enter') $('bNameOk').click(); return; }
+  if(S.mode==='quiz'){
+    if(/^[1-4]$/.test(e.key)) pick(+e.key-1);
+    if(e.key==='Enter'||e.code==='Space'){ e.preventDefault(); confirmAnswer(); }
+    return;
+  }
+  if(e.code==='KeyP'||e.key==='Escape'){ S.mode==='playing'?pauseGame():resumeGame(); return; }
+  const k=KEYMAP[e.code]; if(!k) return; e.preventDefault();
+  if(S.mode!=='playing') return;
+  if(k==='jump'){ if(!S.inp.jump) pressJump(); } else S.inp[k]=true;
+});
+addEventListener('keyup',e=>{ const k=KEYMAP[e.code]; if(k) S.inp[k]=false; });
+function holdBtn(id,fn,up){
+  const el=$(id);
+  el.addEventListener('pointerdown',e=>{ e.preventDefault(); el.setPointerCapture(e.pointerId); el.classList.add('on'); if(S.mode==='playing') fn(); });
+  const end=e=>{ el.classList.remove('on'); up(); };
+  el.addEventListener('pointerup',end); el.addEventListener('pointercancel',end); el.addEventListener('lostpointercapture',end);
+}
+holdBtn('tbL',()=>S.inp.left=true,()=>S.inp.left=false);
+holdBtn('tbR',()=>S.inp.right=true,()=>S.inp.right=false);
+holdBtn('tbJ',pressJump,()=>S.inp.jump=false);
+function clearTouchUI(){ document.querySelectorAll('.tb').forEach(b=>b.classList.remove('on')); }
+if(matchMedia('(pointer:coarse)').matches||'ontouchstart' in window) document.body.classList.add('touch');
+
+/* ---------- ปุ่มต่างๆ ---------- */
+$('bStart').onclick=()=>{ Sound.init(); const st=getStudent(); beginRun(st?Math.min(st.unlocked,LEVELS.length)-1:0); };
+$('bRestart').onclick=()=>{ Sound.init(); beginRun(0); };
+$('bHow').onclick=()=>{ S.prevScreen='sMenu'; showScreen('sHow'); };
+$('bJan').onclick=()=>{ S.prevScreen='sMenu'; showScreen('sJan'); };
+$('bDash').onclick=()=>openDash('sMenu');
+$('bUser').onclick=()=>{ $('inName').value=''; $('inRoom').value=''; showScreen('sName'); $('inName').focus(); };
+document.querySelectorAll('[data-back]').forEach(b=>b.onclick=()=>showScreen(S.prevScreen||'sMenu'));
+$('bNameOk').onclick=()=>{
+  const n=$('inName').value.trim(); if(!n){ $('inName').style.borderColor='#e03131'; $('inName').focus(); return; }
+  const r=$('inRoom').value.trim(), k=studentKey(n,r);
+  if(!DB.students[k]) DB.students[k]={name:n,room:r,unlocked:1,attempts:[],created:Date.now()};
+  DB.last=k; S.student=k; Store.save(DB); $('inName').style.borderColor='#7a2e00'; renderMenu(); showScreen('sMenu');
+};
+$('bNameCancel').onclick=()=>{ showScreen('sMenu'); };
+$('bGo').onclick=startPlay;
+$('bIntroMenu').onclick=toMenu;
+$('bConfirm').onclick=confirmAnswer;
+$('bResume').onclick=resumeGame;
+$('bPauseMenu').onclick=toMenu;
+$('btnPause').onclick=()=>S.mode==='playing'?pauseGame():resumeGame();
+$('btnMute').onclick=()=>{ Sound.init(); Sound.setMute(!Sound.muted); };
+$('bCsv').onclick=exportCsv;
+$('bClear').onclick=()=>{ if(confirm('ต้องการลบข้อมูลผู้เล่นและคะแนนทั้งหมดในเครื่องนี้ใช่หรือไม่?')){ DB={students:{},last:null}; Store.save(DB); S.student=null; renderMenu(); openDash(S.prevScreen); } };
+
+/* ---------- ปรับขนาดเวทีให้พอดีหน้าจอ ---------- */
+function fit(){ const s=Math.min(innerWidth/960,innerHeight/540); $('stage').style.transform='scale('+s+')'; }
+addEventListener('resize',fit); addEventListener('orientationchange',fit); fit();
+
+/* ---------- เริ่มต้น ---------- */
+$('howPass').textContent=CONFIG.passCorrect;
+$('janGrid').innerHTML=MAHAJANAPADAS.map((m,i)=>'<div class="jan"><b>'+(i+1)+'. '+m[0]+'</b><br>เมืองสำคัญ: '+m[1]+'</div>').join('');
+if(DB.last&&DB.students[DB.last]) S.student=DB.last;
+Sound.setMute(Sound.muted);
+loadLevel(0); renderMenu(); showScreen('sMenu');
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
